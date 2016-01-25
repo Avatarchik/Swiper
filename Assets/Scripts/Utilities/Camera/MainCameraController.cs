@@ -15,12 +15,15 @@ public class MainCameraController : Singleton<MainCameraController>
 
     public float TargetOrtographicSize;
 
+    public Transform Transform;
+
     public override void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             _gameCamera = GetComponent<Camera>();
+            Transform = gameObject.transform;
             if (SingletonType == SingletonType.Indestructible)
             {
                 DontDestroyOnLoad(gameObject);

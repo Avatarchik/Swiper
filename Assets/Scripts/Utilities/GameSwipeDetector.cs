@@ -4,50 +4,65 @@ using System;
 
 public class GameSwipeDetector : MonoBehaviour
 {
-	[Serializable]
-	public class VectorEvent : UnityEvent <Vector2>{ }
+    [Serializable]
+    public class VectorEvent : UnityEvent<Vector2> { }
 
-    public Action<int> OnSwipeEvent;
+    public bool _isStretchMode = false;
 
-    public Action OnFireEvent;
+    public float SwipeTime = 0.1f;
 
-	public bool _isStretchMode = false;
+    private float _swipeTimer;
 
-	[Header("Swipe Events")]
-	public UnityEvent OnSwipeLeft;
-	public UnityEvent OnSwipeRight;
-	public UnityEvent OnSwipeUp;
-	public UnityEvent OnSwipeDown;
+    private bool _skipTimer;
 
-	
-	[Header("Stretch Events")]
-	public VectorEvent OnStretchUpdate;
-	public VectorEvent OnStretchComplete;
+    [Header("Swipe Events")]
+    public UnityEvent OnSwipeLeft;
 
-	private Action _onUpdate;
-	private Action<bool> _onCheckInput ;
+    public UnityEvent OnSwipeRight;
+
+    public UnityEvent OnSwipeUp;
+
+    public UnityEvent OnSwipeDown;
+
+    public UnityEvent OnSwipeLeftComplete;
+
+    public UnityEvent OnSwipeRightComplete;
+
+    public UnityEvent OnSwipeUpComplete;
+
+    public UnityEvent OnSwipeDownComplete;
+
+    [Header("Stretch Events")]
+    public VectorEvent OnStretchUpdate;
+
+    public VectorEvent OnStretchComplete;
+
+    private Action _onUpdate;
+
+    private Action<bool> _onCheckInput;
 
     private Vector2 _startFingerPosition;
+
     private Vector2 _finishFingerPosition;
 
     private int _startFingerId;
 
     private float _swipeMinLength;
 
-	public Vector2 CurrentVector {
-		get {
-			return _finishFingerPosition - _startFingerPosition;
-		}
-	}
+    public Vector2 CurrentVector
+    {
+        get
+        {
+            return _finishFingerPosition - _startFingerPosition;
+        }
+    }
 
 
     public void Init()
     {
-
         Input.multiTouchEnabled = false;
 
-        //Procent Of Screen
-		float swipeProcent = 0.03f; //  BalanceController.Instance.BalanceData.InputDetector.SwipeLength;
+        float swipeProcent = 0.03f; 
 
         if (Application.isMobilePlatform)
         {
@@ -60,110 +75,156 @@ public class GameSwipeDetector : MonoBehaviour
             _onUpdate = UpdateStandalone;
         }
 
-		_onCheckInput = null;
-		if (_isStretchMode) 
-		{
-			_onCheckInput = StretchUpdate;
-		} else  {
-			_onCheckInput =	CheckInput;
-		}
+        _onCheckInput = null;
+        if (_isStretchMode)
+        {
+            _onCheckInput = StretchUpdate;
+        }
+        else
+        {
+            _onCheckInput = CheckInput;
+        }
 
     }
 
     private void Start()
     {
-		Init ();
+        Init();
     }
 
     private void Update()
     {
-		_onUpdate();
+        _onUpdate();
     }
 
-    // _onUpdate
     private void UpdateMobile()
-	{
+    {
         foreach (Touch touch in Input.touches)
         {
             if (touch.phase == TouchPhase.Began)
             {
+                _swipeTimer = 0;
                 _startFingerId = touch.fingerId;
                 _startFingerPosition = touch.position;
-                //                isSwiped = false;
             }
             else if (touch.phase == TouchPhase.Moved && _startFingerId == touch.fingerId)
             {
+                _swipeTimer += Time.deltaTime;
                 _finishFingerPosition = touch.position;
-				_onCheckInput.Invoke(false);
+                _onCheckInput.Invoke(false);
             }
             else if (touch.phase == TouchPhase.Ended && _startFingerId == touch.fingerId)
             {
-				_finishFingerPosition = touch.position;
-				_onCheckInput.Invoke(true);
+                _swipeTimer += Time.deltaTime;
+                _finishFingerPosition = touch.position;
+                _onCheckInput.Invoke(true);
             }
         }
     }
 
-    // _onUpdate
     private void UpdateStandalone()
     {
-        if (Input.GetMouseButtonDown(0) )
+        if (Input.GetMouseButtonDown(0))
         {
-            //            isSwiped = false;
-			_startFingerPosition = Input.mousePosition;
-			_finishFingerPosition = Input.mousePosition;
-			_onCheckInput.Invoke(false);
-		}
-		else if (Input.GetMouseButton(0))
-		{
-			_finishFingerPosition = Input.mousePosition;
-			_onCheckInput.Invoke(false);
-		}
+            _swipeTimer = 0;
+            _skipTimer = false;
+            _startFingerPosition = Input.mousePosition;
+            _finishFingerPosition = Input.mousePosition;
+            _onCheckInput.Invoke(false);
+        }
+        else if (Input.GetMouseButton(0))
+        {
+            _swipeTimer += Time.deltaTime;
+            _finishFingerPosition = Input.mousePosition;
+            _onCheckInput.Invoke(false);
+        }
         else if (Input.GetMouseButtonUp(0))
         {
-			_finishFingerPosition = Input.mousePosition;
-			_onCheckInput.Invoke(true);
+            _finishFingerPosition = Input.mousePosition;
+            _onCheckInput.Invoke(true);
         }
     }
 
     private void CheckInput(bool touchEnd = false)
     {
-//        float directSwipeY = _startFingerPosition.y - _finishFingerPosition.y;
-//        float swipeCurrentLength = Math.Abs(directSwipeY);
+        Vector2 delta = _startFingerPosition - _finishFingerPosition;
+        Vector2 deltaSz = new Vector2(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
 
-		Vector2 delta = _startFingerPosition - _finishFingerPosition;
-		Vector2 deltaSz = new Vector2 (Mathf.Abs(delta.x), Mathf.Abs(delta.y) );
+        if ((deltaSz.y > deltaSz.x) && deltaSz.y > _swipeMinLength)
+        {
+            if (delta.y > 0f)
+            {
+                if (touchEnd)
+                {
+                    OnSwipeDownComplete.Invoke();
+                }
 
-		if ( (deltaSz.y > deltaSz.x) && deltaSz.y > _swipeMinLength )
-		{
-			if ( delta.y > 0f )
-			{
-				OnSwipeDown.Invoke();
-			} else {
-				OnSwipeUp.Invoke();
-			}
-		} else 
-		if ( (deltaSz.x > deltaSz.y) && deltaSz.x > _swipeMinLength )
-		{
-			if ( delta.x > 0f )
-			{
-				OnSwipeLeft.Invoke();
-			} else {
-				OnSwipeRight.Invoke();
-			}
-		}
+                if (_swipeTimer >= SwipeTime && !_skipTimer)
+                {
+                    _skipTimer = true;
+                    OnSwipeDown.Invoke();
+                }
+            }
+            else
+            {
+                if (touchEnd)
+                {
+                    OnSwipeUpComplete.Invoke();
+                }
+
+                if (_swipeTimer >= SwipeTime && !_skipTimer)
+                {
+                    _skipTimer = true;
+                    OnSwipeUp.Invoke();
+                }
+            }
+        }
+        else
+        {
+            if ((deltaSz.x > deltaSz.y) && deltaSz.x > _swipeMinLength)
+            {
+                if (delta.x > 0f)
+                {
+                    if (touchEnd)
+                    {
+                        OnSwipeLeftComplete.Invoke();
+                    }
+
+                    if (_swipeTimer >= SwipeTime && !_skipTimer)
+                    {
+                        _skipTimer = true;
+                        OnSwipeLeft.Invoke();
+                    }
+                }
+                else
+                {
+                    if (touchEnd)
+                    {
+                        OnSwipeRightComplete.Invoke();
+                    }
+
+                    if (_swipeTimer >= SwipeTime && !_skipTimer)
+                    {
+                        _skipTimer = true;
+                        OnSwipeRight.Invoke();
+                    }
+                }
+            }
+        }
     }
-	
-	
-	private void StretchUpdate(bool complete = false)
-	{
-		if (complete) {
-			OnStretchComplete.Invoke (CurrentVector);
 
-		} else {
-			OnStretchUpdate.Invoke (CurrentVector);
-		}
-	}
+
+    private void StretchUpdate(bool complete = false)
+    {
+        if (complete)
+        {
+            OnStretchComplete.Invoke(CurrentVector);
+        }
+        else
+        {
+            OnStretchUpdate.Invoke(CurrentVector);
+        }
+    }
 
 
 
